@@ -1,0 +1,49 @@
+# Built application & build outputs
+*.apk
+*.aar
+*.ap_
+*.aab
+*.dex
+*.class
+**/build/
+build/
+bin/
+gen/
+out/
+
+# Gradle files & caches
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Local configuration file (SDK path, NDK path)
+local.properties
+
+# Log files
+*.log
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin cache
+.kotlin/
+
+# VS Code
+.vscode/
+
+# Signing keys & sensitive data
+*.jks
+*.keystore
+secrets.properties
+*.env
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
