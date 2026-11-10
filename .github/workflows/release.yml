@@ -95,11 +95,24 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Hanya ABI ARM (hampir semua HP): membuang x86/x86_64 yang khusus
+      # emulator sehingga APK jauh lebih kecil dan cepat diunduh.
       - name: Build release APK
         run: |
           flutter build apk --release \
+            --target-platform android-arm,android-arm64 \
             --build-name="${{ steps.version.outputs.name }}" \
             --build-number="${{ steps.version.outputs.code }}"
+
+      # Nama file ikut terlihat saat diunduh, mis. langkah-1.0.1.apk.
+      - name: Rename APK
+        id: apk
+        run: |
+          SRC="build/app/outputs/flutter-apk/app-release.apk"
+          DST="build/app/outputs/flutter-apk/langkah-${{ steps.version.outputs.name }}.apk"
+          mv "$SRC" "$DST"
+          echo "path=$DST" >> "$GITHUB_OUTPUT"
+          ls -lh "$DST"
 
       # Pesan tag beranotasi bila ada; untuk tag biasa jatuh ke pesan commit.
       - name: Generate changelog
@@ -117,5 +130,5 @@ jobs:
           name: Langkah ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
           body_path: release_notes.md
           prerelease: ${{ steps.version.outputs.prerelease }}
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: ${{ steps.apk.outputs.path }}
           fail_on_unmatched_files: true
