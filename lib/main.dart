@@ -1,9 +1,14 @@
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:langkah/core/constants/app_colors.dart';
-import 'package:langkah/presentation/home/home_screen.dart';
 
 void main() {
-  runApp(const LangkahApp());
+  runApp(
+    DevicePreview(
+      enabled: !kReleaseMode,
+      builder: (context) => const LangkahApp(),
+    ),
+  );
 }
 
 class LangkahApp extends StatelessWidget {
@@ -14,13 +19,19 @@ class LangkahApp extends StatelessWidget {
     return MaterialApp(
       title: 'Langkah',
       debugShowCheckedModeBanner: false,
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       theme: ThemeData(
-        colorSchemeSeed: AppColors.tealPrimary,
-        scaffoldBackgroundColor: AppColors.canvasBg,
+        colorSchemeSeed: const Color(0xFF00897B),
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const Scaffold(
+        body: Center(
+          child: Text('Langkah App'),
+        ),
+      ),
     );
   }
 }
