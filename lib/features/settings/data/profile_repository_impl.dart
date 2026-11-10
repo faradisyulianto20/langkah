@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:langkah/core/network/supabase_config.dart';
 import 'package:langkah/features/settings/data/profile_repository.dart';
 import 'package:langkah/features/settings/domain/profile_model.dart';
@@ -59,6 +60,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   Exception _handleError(Object e) {
     final message = e.toString();
+    debugPrint('[ProfileRepository] ${e.runtimeType}: $message');
     if (message.contains('row-level security')) {
       return Exception('Akses ditolak. Silakan login ulang.');
     }

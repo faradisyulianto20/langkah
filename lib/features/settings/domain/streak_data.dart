@@ -48,8 +48,8 @@ class StreakData {
       currentStreak: map['current_streak'] as int? ?? 0,
       longestStreak: map['longest_streak'] as int? ?? 0,
       totalCompletedSteps: map['total_completed_steps'] as int? ?? 0,
-      lastActivityDate: map['last_activity_date'] != null
-          ? DateTime.tryParse(map['last_activity_date'] as String)
+      lastActivityDate: map['last_active_date'] != null
+          ? DateTime.tryParse(map['last_active_date'] as String)
           : null,
     );
   }
@@ -60,7 +60,7 @@ class StreakData {
       'current_streak': currentStreak,
       'longest_streak': longestStreak,
       'total_completed_steps': totalCompletedSteps,
-      'last_activity_date': lastActivityDate?.toIso8601String(),
+      'last_active_date': lastActivityDate?.toIso8601String(),
     };
   }
 
