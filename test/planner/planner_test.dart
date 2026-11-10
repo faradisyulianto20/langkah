@@ -3,7 +3,7 @@ import 'package:langkah/core/utils/date_helpers.dart';
 import 'package:langkah/features/home/domain/daily_task.dart';
 import 'package:langkah/features/planner/data/planner_repository.dart';
 import 'package:langkah/features/planner/domain/backlog_item.dart';
-import 'package:langkah/features/planner/domain/category.dart';
+import 'package:langkah/features/home/domain/category.dart';
 import 'package:langkah/features/planner/domain/goal_status.dart';
 import 'package:langkah/features/planner/domain/monthly_goal.dart';
 import 'package:langkah/features/planner/domain/weekly_target.dart';
@@ -129,6 +129,12 @@ class FakeRepo implements PlannerRepository {
     );
     tasks.add(t);
     return t;
+  }
+
+  @override
+  Future<DailyTask> updateDailyTask(DailyTask task) async {
+    _check();
+    return task;
   }
 
   @override
@@ -313,19 +319,90 @@ void main() {
 
     test('selectDay & progres per hari/minggu', () async {
       await vm.load();
-      await vm.goNext(); // minggu 16-22 Nov, bukan minggu sistem
-      expect(vm.selectedDay, vm.weekStart);
-      vm.selectDay(DateTime(2026, 11, 18));
-      expect(vm.selectedDay, DateTime(2026, 11, 18));
+      // Hari ini (clock tetap) = Selasa 10 Nov, minggu 9-15 Nov.
+      expect(vm.selectedDay, DateTime(2026, 11, 10));
+      vm.selectDay(DateTime(2026, 11, 12));
+      expect(vm.selectedDay, DateTime(2026, 11, 12));
 
-      await vm.addTask(title: 'a', date: DateTime(2026, 11, 18));
-      await vm.addTask(title: 'b', date: DateTime(2026, 11, 18));
+      await vm.addTask(title: 'a', date: DateTime(2026, 11, 10));
+      await vm.addTask(title: 'b', date: DateTime(2026, 11, 10));
       await vm.toggleTask(vm.weekTasks.first);
-      expect(vm.progressForDay(DateTime(2026, 11, 18)), (done: 1, total: 2));
+      expect(vm.progressForDay(DateTime(2026, 11, 10)), (done: 1, total: 2));
       expect(vm.weekTaskProgress, (done: 1, total: 2));
 
       await vm.goNext(); // pilihan direset ke Senin minggu baru
       expect(vm.selectedDay, vm.weekStart);
+    });
+
+    test('centang hanya di hari-H: besok & kemarin terkunci', () async {
+      await vm.load();
+      await vm.addTask(title: 'kemarin', date: DateTime(2026, 11, 9));
+      await vm.addTask(title: 'besok', date: DateTime(2026, 11, 11));
+      await vm.addTask(title: 'hari ini', date: DateTime(2026, 11, 10));
+      final yesterday = vm.weekTasks.firstWhere((t) => t.title == 'kemarin');
+      final tomorrow = vm.weekTasks.firstWhere((t) => t.title == 'besok');
+      final today = vm.weekTasks.firstWhere((t) => t.title == 'hari ini');
+
+      expect(vm.canToggleTask(yesterday), isFalse);
+      expect(vm.canToggleTask(tomorrow), isFalse);
+      expect(vm.canToggleTask(today), isTrue);
+
+      expect(await vm.toggleTask(tomorrow), isFalse);
+      expect(vm.errorMessage, isNotNull);
+      expect(await vm.toggleTask(yesterday), isFalse);
+      expect(vm.weekTasks.where((t) => t.isCompleted), isEmpty);
+      expect(await vm.toggleTask(today), isTrue);
+    });
+
+    test('rencana tetap bisa diedit walau hari sudah lewat', () async {
+      await vm.load();
+      await vm.addTask(title: 'lama', date: DateTime(2026, 11, 9));
+      final old = vm.weekTasks.single;
+      final ok = await vm.updateTask(
+        old,
+        title: 'diedit',
+        date: DateTime(2026, 11, 13),
+        priority: TaskPriority.high,
+      );
+      expect(ok, isTrue);
+      expect(vm.weekTasks.single.title, 'diedit');
+      expect(vm.weekTasks.single.scheduledDate, DateTime(2026, 11, 13));
+      expect(vm.weekTasks.single.priority, TaskPriority.high);
+    });
+
+    test('target & sasaran hanya bisa dicentang pada periodenya', () async {
+      await vm.load();
+      await vm.addTarget(title: 'minggu ini');
+      final current = vm.weekTargets.single;
+      expect(vm.canToggleTarget(current), isTrue);
+      expect(await vm.toggleTargetCompleted(current), isTrue);
+
+      await vm.goNext();
+      await vm.addTarget(title: 'minggu depan');
+      final next = vm.weekTargets.single;
+      expect(vm.canToggleTarget(next), isFalse);
+      expect(await vm.toggleTargetCompleted(next), isFalse);
+      // Tidak bisa dibuat langsung berstatus selesai di minggu depan.
+      expect(
+        await vm.addTarget(title: 'x', status: GoalStatus.completed),
+        isFalse,
+      );
+      // Edit biasa tetap boleh.
+      expect(
+        await vm.updateTarget(
+          next,
+          title: 'diedit',
+          monthlyGoalId: null,
+          status: GoalStatus.pending,
+        ),
+        isTrue,
+      );
+
+      await vm.setMode(PlannerMode.monthly);
+      await vm.goNext(); // Desember
+      await vm.addGoal(title: 'Desember');
+      expect(vm.canToggleGoal(vm.goals.single), isFalse);
+      expect(await vm.toggleGoalCompleted(vm.goals.single), isFalse);
     });
 
     test('centang sasaran bulanan: optimistic & rollback', () async {

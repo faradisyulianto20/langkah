@@ -109,8 +109,21 @@ class _TargetFormSheetState extends State<TargetFormSheet> {
             const SizedBox(height: 16),
             StatusSelector(
               value: _status,
+              allowCompleted: widget.target == null
+                  ? vm.focusWeekIsCurrent
+                  : vm.canToggleTarget(widget.target!),
               onChanged: (s) => setState(() => _status = s),
             ),
+            if (!(widget.target == null
+                ? vm.focusWeekIsCurrent
+                : vm.canToggleTarget(widget.target!)))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Status "Selesai" hanya bisa dipilih pada minggunya.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             const SizedBox(height: 24),
             CustomButton(
               text: 'Simpan',

@@ -61,7 +61,9 @@ class _CardMenu extends StatelessWidget {
 class MonthlyGoalCard extends StatelessWidget {
   final MonthlyGoal goal;
   final ({int done, int total}) progress;
-  final VoidCallback onToggle;
+
+  /// null = terkunci (di luar bulannya), centang dinonaktifkan.
+  final VoidCallback? onToggle;
   final VoidCallback onTap;
 
   const MonthlyGoalCard({
@@ -89,13 +91,16 @@ class MonthlyGoalCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
-                tooltip: done ? 'Tandai belum selesai' : 'Tandai selesai',
+                tooltip: onToggle == null
+                    ? 'Hanya bisa dicentang pada bulannya'
+                    : (done ? 'Tandai belum selesai' : 'Tandai selesai'),
                 onPressed: onToggle,
                 icon: Icon(
                   done
                       ? Icons.check_circle_rounded
                       : Icons.radio_button_unchecked_rounded,
-                  color: done ? AppColors.success : AppColors.textSecondary,
+                  color: (done ? AppColors.success : AppColors.textSecondary)
+                      .withValues(alpha: onToggle == null ? 0.45 : 1),
                 ),
               ),
               Expanded(
@@ -128,8 +133,8 @@ class MonthlyGoalCard extends StatelessWidget {
                                 child: LinearProgressIndicator(
                                   value: ratio,
                                   minHeight: 5,
-                                  color: AppColors.tealPrimary,
-                                  backgroundColor: AppColors.divider,
+                                  color: AppColors.progressColor(ratio),
+                                  backgroundColor: context.trackColor,
                                 ),
                               ),
                             ),
@@ -158,7 +163,9 @@ class WeeklyTargetCard extends StatelessWidget {
   final WeeklyTarget target;
   final String? goalTitle;
   final ({int done, int total}) taskProgress;
-  final VoidCallback onToggle;
+
+  /// null = terkunci (di luar minggunya), centang dinonaktifkan.
+  final VoidCallback? onToggle;
   final ValueChanged<CardAction> onAction;
 
   const WeeklyTargetCard({
@@ -182,12 +189,16 @@ class WeeklyTargetCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconButton(
+              tooltip: onToggle == null
+                  ? 'Hanya bisa dicentang pada minggunya'
+                  : null,
               onPressed: onToggle,
               icon: Icon(
                 done
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
-                color: done ? AppColors.success : AppColors.textSecondary,
+                color: (done ? AppColors.success : AppColors.textSecondary)
+                    .withValues(alpha: onToggle == null ? 0.45 : 1),
               ),
             ),
             Expanded(

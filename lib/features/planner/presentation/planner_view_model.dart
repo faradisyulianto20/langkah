@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:langkah/core/utils/completion_rules.dart';
 import 'package:langkah/core/utils/date_helpers.dart';
 import 'package:langkah/features/home/domain/daily_task.dart';
 import 'package:langkah/features/planner/data/planner_repository.dart';
 import 'package:langkah/features/planner/domain/backlog_item.dart';
-import 'package:langkah/features/planner/domain/category.dart';
+import 'package:langkah/features/home/domain/category.dart';
 import 'package:langkah/features/planner/domain/goal_status.dart';
 import 'package:langkah/features/planner/domain/monthly_goal.dart';
 import 'package:langkah/features/planner/domain/weekly_target.dart';
@@ -15,8 +16,19 @@ enum PlannerMode { weekly, monthly }
 class PlannerViewModel extends ChangeNotifier {
   final PlannerRepository repository;
 
-  PlannerViewModel({required this.repository, DateTime? today})
-    : _focus = DateHelpers.dateOnly(today ?? DateTime.now());
+  /// [today] menetapkan hari acuan awal; bila [clock] tidak diberikan,
+  /// [today] juga dipakai sebagai "sekarang" (berguna untuk tes).
+  PlannerViewModel({
+    required this.repository,
+    DateTime? today,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? (today != null ? (() => today) : DateTime.now),
+       _focus = DateHelpers.dateOnly(
+         today ?? (clock != null ? clock() : DateTime.now()),
+       );
+
+  final DateTime Function() _clock;
+  DateTime get _now => _clock();
 
   PlannerStatus _status = PlannerStatus.initial;
   PlannerStatus _mutationStatus = PlannerStatus.initial;
@@ -73,7 +85,7 @@ class PlannerViewModel extends ChangeNotifier {
       : 'Bulan ${_focus.month}/12';
 
   bool get isCurrentPeriod {
-    final now = DateTime.now();
+    final now = _now;
     return _mode == PlannerMode.weekly
         ? DateHelpers.isSameDay(DateHelpers.startOfWeek(now), weekStart)
         : now.year == _focus.year && now.month == _focus.month;
@@ -88,7 +100,7 @@ class PlannerViewModel extends ChangeNotifier {
         !picked.isAfter(weekEnd)) {
       return picked;
     }
-    final today = DateHelpers.dateOnly(DateTime.now());
+    final today = DateHelpers.dateOnly(_now);
     if (!today.isBefore(weekStart) && !today.isAfter(weekEnd)) return today;
     return weekStart;
   }
@@ -170,6 +182,28 @@ class PlannerViewModel extends ChangeNotifier {
     );
   }
 
+  // ─────────── Aturan centang (hanya pada periodenya) ───────────
+
+  bool canToggleTask(DailyTask t) =>
+      CompletionRules.canCompleteTask(t.scheduledDate, _now);
+
+  bool canToggleTarget(WeeklyTarget t) =>
+      CompletionRules.canCompleteTarget(t.targetYear, t.targetWeek, _now);
+
+  /// Apakah minggu yang sedang ditampilkan adalah minggu berjalan.
+  bool get focusWeekIsCurrent =>
+      CompletionRules.canCompleteTarget(isoWeek.year, isoWeek.week, _now);
+
+  bool canToggleGoal(MonthlyGoal g) =>
+      CompletionRules.canCompleteGoal(g.targetMonth, _now);
+
+  /// Menolak aksi: simpan pesan dan beri tahu UI.
+  bool _deny(String message) {
+    _errorMessage = message;
+    notifyListeners();
+    return false;
+  }
+
   void clearMessages() {
     _errorMessage = null;
     _successMessage = null;
@@ -189,7 +223,7 @@ class PlannerViewModel extends ChangeNotifier {
   Future<void> goNext() => _shiftPeriod(1);
 
   Future<void> goToToday() {
-    _focus = DateHelpers.dateOnly(DateTime.now());
+    _focus = DateHelpers.dateOnly(_now);
     _selectedDay = null;
     return load();
   }
@@ -292,6 +326,7 @@ class PlannerViewModel extends ChangeNotifier {
 
   /// Centang cepat sasaran bulanan (optimistic, rollback bila gagal).
   Future<bool> toggleGoalCompleted(MonthlyGoal goal) async {
+    if (!canToggleGoal(goal)) return _deny(CompletionRules.goalLockedMessage);
     final previous = _goals;
     final next = goal.status == GoalStatus.completed
         ? GoalStatus.pending
@@ -338,7 +373,19 @@ class PlannerViewModel extends ChangeNotifier {
     required String title,
     String? monthlyGoalId,
     GoalStatus status = GoalStatus.pending,
-  }) => _mutate(() async {
+  }) async {
+    if (status == GoalStatus.completed &&
+        !CompletionRules.canCompleteTarget(isoWeek.year, isoWeek.week, _now)) {
+      return _deny(CompletionRules.targetLockedMessage);
+    }
+    return _addTarget(title, monthlyGoalId, status);
+  }
+
+  Future<bool> _addTarget(
+    String title,
+    String? monthlyGoalId,
+    GoalStatus status,
+  ) => _mutate(() async {
     final iso = isoWeek;
     final target = await repository.addWeeklyTarget(
       title: title.trim(),
@@ -355,7 +402,22 @@ class PlannerViewModel extends ChangeNotifier {
     required String title,
     String? monthlyGoalId,
     required GoalStatus status,
-  }) => _mutate(() async {
+  }) async {
+    final completionChanged =
+        (status == GoalStatus.completed) !=
+        (target.status == GoalStatus.completed);
+    if (completionChanged && !canToggleTarget(target)) {
+      return _deny(CompletionRules.targetLockedMessage);
+    }
+    return _updateTarget(target, title, monthlyGoalId, status);
+  }
+
+  Future<bool> _updateTarget(
+    WeeklyTarget target,
+    String title,
+    String? monthlyGoalId,
+    GoalStatus status,
+  ) => _mutate(() async {
     final updated = await repository.updateWeeklyTarget(
       target.copyWith(
         title: title.trim(),
@@ -370,6 +432,9 @@ class PlannerViewModel extends ChangeNotifier {
   }, success: 'Target diperbarui.');
 
   Future<bool> toggleTargetCompleted(WeeklyTarget target) {
+    if (!canToggleTarget(target)) {
+      return Future.value(_deny(CompletionRules.targetLockedMessage));
+    }
     final next = target.status == GoalStatus.completed
         ? GoalStatus.pending
         : GoalStatus.completed;
@@ -427,6 +492,7 @@ class PlannerViewModel extends ChangeNotifier {
 
   /// Optimistic update dengan rollback bila gagal.
   Future<bool> toggleTask(DailyTask task) async {
+    if (!canToggleTask(task)) return _deny(CompletionRules.taskLockedMessage);
     final previous = _weekTasks;
     final nextCompleted = !task.isCompleted;
     _weekTasks = [
@@ -434,7 +500,7 @@ class PlannerViewModel extends ChangeNotifier {
         if (t.id == task.id)
           t.copyWith(
             isCompleted: nextCompleted,
-            completedAt: nextCompleted ? DateTime.now() : null,
+            completedAt: nextCompleted ? _now : null,
             clearCompletedAt: !nextCompleted,
           )
         else
@@ -453,6 +519,36 @@ class PlannerViewModel extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Edit rencana tugas (judul, hari, prioritas, kategori, target).
+  /// Status selesai tidak diubah di sini.
+  Future<bool> updateTask(
+    DailyTask task, {
+    required String title,
+    required DateTime date,
+    required TaskPriority priority,
+    String? categoryId,
+    String? weeklyTargetId,
+  }) => _mutate(() async {
+    final updated = await repository.updateDailyTask(
+      DailyTask(
+        id: task.id,
+        userId: task.userId,
+        title: title.trim(),
+        scheduledDate: DateHelpers.dateOnly(date),
+        priority: priority,
+        categoryId: categoryId,
+        weeklyTargetId: weeklyTargetId,
+        isCompleted: task.isCompleted,
+        completedAt: task.completedAt,
+        createdAt: task.createdAt,
+      ),
+    );
+    final rest = _weekTasks.where((t) => t.id != task.id).toList();
+    _weekTasks = _inLoadedWeek(updated.scheduledDate)
+        ? [...rest, updated]
+        : rest;
+  }, success: 'Tugas diperbarui.');
 
   Future<bool> deleteTask(String id) => _mutate(() async {
     await repository.deleteDailyTask(id);

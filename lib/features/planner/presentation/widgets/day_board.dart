@@ -3,6 +3,8 @@ import 'package:langkah/core/constants/app_colors.dart';
 import 'package:langkah/core/utils/date_helpers.dart';
 import 'package:langkah/features/home/domain/daily_task.dart';
 import 'package:langkah/features/planner/presentation/planner_view_model.dart';
+import 'package:langkah/features/planner/presentation/widgets/sheet_scaffold.dart';
+import 'package:langkah/features/planner/presentation/widgets/task_form_sheet.dart';
 import 'package:provider/provider.dart';
 
 Color priorityColor(TaskPriority p) => switch (p) {
@@ -80,7 +82,9 @@ class _DayChip extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isToday || selected ? AppColors.tealPrimary : AppColors.border,
+          color: isToday || selected
+              ? AppColors.tealPrimary
+              : context.borderColor,
           width: isToday ? 1.5 : 1,
         ),
       ),
@@ -112,17 +116,7 @@ class _DayChip extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                progress.total == 0
-                    ? '–'
-                    : '${progress.done}/${progress.total}',
-                style: TextStyle(
-                  color: selected ? Colors.white70 : AppColors.textSecondary,
-                  fontSize: 10,
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: ClipRRect(
@@ -130,10 +124,14 @@ class _DayChip extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: ratio,
                     minHeight: 3,
-                    color: selected ? Colors.white : AppColors.tealPrimary,
+                    color: selected
+                        ? Colors.white
+                        : AppColors.progressColor(
+                            progress.total == 0 ? null : ratio,
+                          ),
                     backgroundColor: selected
                         ? Colors.white30
-                        : AppColors.divider,
+                        : context.trackColor,
                   ),
                 ),
               ),
@@ -169,35 +167,32 @@ class _DayPanel extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 4, 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${DateHelpers.dayName(day)}, ${DateHelpers.shortDate(day)}'
-                    '${isToday ? ' · Hari ini' : ''}',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isToday ? AppColors.tealPrimary : null,
+            if (!isToday)
+              Padding(
+                padding: const EdgeInsets.only(right: 12, bottom: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 14,
+                      color: context.mutedText,
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        day.isBefore(DateHelpers.dateOnly(DateTime.now()))
+                            ? 'Hari ini sudah lewat. Centang terkunci, rencana tetap bisa diedit.'
+                            : 'Belum waktunya. Centang terbuka di hari-H, rencana bisa diedit.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '${progress.done}/${progress.total}',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Tambah tugas',
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                ),
-              ],
-            ),
+              ),
             Padding(
               padding: const EdgeInsets.only(right: 12, bottom: 8),
               child: ClipRRect(
@@ -205,12 +200,22 @@ class _DayPanel extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: ratio,
                   minHeight: 6,
-                  color: AppColors.tealPrimary,
-                  backgroundColor: AppColors.divider,
+                  color: AppColors.progressColor(ratio),
+                  backgroundColor: context.trackColor,
                 ),
               ),
             ),
             for (final t in tasks) _TaskTile(task: t),
+            // Hari/tanggal sudah ada di grid 7 hari, jadi aksi tambah
+            // ditaruh di bawah daftar.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text('Tambah tugas'),
+              ),
+            ),
           ],
         ),
       ),
@@ -306,16 +311,19 @@ class _TaskTile extends StatelessWidget {
       children: [
         Checkbox(
           value: task.isCompleted,
-          onChanged: (_) async {
-            final ok = await vm.toggleTask(task);
-            if (!ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(vm.errorMessage ?? 'Gagal memperbarui.'),
-                ),
-              );
-            }
-          },
+          // Terkunci bila bukan hari-H (tidak bisa dicentang/di-uncheck).
+          onChanged: vm.canToggleTask(task)
+              ? (_) async {
+                  final ok = await vm.toggleTask(task);
+                  if (!ok && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(vm.errorMessage ?? 'Gagal memperbarui.'),
+                      ),
+                    );
+                  }
+                }
+              : null,
         ),
         Container(
           width: 8,
@@ -327,27 +335,34 @@ class _TaskTile extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                task.title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  decoration: task.isCompleted
-                      ? TextDecoration.lineThrough
-                      : null,
-                  color: task.isCompleted ? AppColors.textSecondary : null,
-                ),
-              ),
-              if (category != null)
-                Text(
-                  category.name,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: category.color,
-                    fontWeight: FontWeight.w600,
+          child: InkWell(
+            onTap: () =>
+                showPlannerSheet(context, child: TaskFormSheet(task: task)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      decoration: task.isCompleted
+                          ? TextDecoration.lineThrough
+                          : null,
+                      color: task.isCompleted ? context.mutedText : null,
+                    ),
                   ),
-                ),
-            ],
+                  if (category != null)
+                    Text(
+                      category.name,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: category.color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
         IconButton(

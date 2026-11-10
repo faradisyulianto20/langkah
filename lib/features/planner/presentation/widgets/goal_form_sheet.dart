@@ -154,10 +154,14 @@ class StatusSelector extends StatelessWidget {
   final GoalStatus value;
   final ValueChanged<GoalStatus> onChanged;
 
+  /// false = segmen "Selesai" dinonaktifkan (di luar periodenya).
+  final bool allowCompleted;
+
   const StatusSelector({
     super.key,
     required this.value,
     required this.onChanged,
+    this.allowCompleted = true,
   });
 
   @override
@@ -168,7 +172,11 @@ class StatusSelector extends StatelessWidget {
         showSelectedIcon: false,
         segments: [
           for (final s in GoalStatus.values)
-            ButtonSegment(value: s, label: Text(s.label)),
+            ButtonSegment(
+              value: s,
+              label: Text(s.label),
+              enabled: s != GoalStatus.completed || allowCompleted,
+            ),
         ],
         selected: {value},
         onSelectionChanged: (set) => onChanged(set.first),

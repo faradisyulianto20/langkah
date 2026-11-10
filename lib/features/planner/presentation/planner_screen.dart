@@ -17,19 +17,24 @@ import 'package:langkah/features/planner/presentation/widgets/task_form_sheet.da
 import 'package:provider/provider.dart';
 
 class PlannerScreen extends StatelessWidget {
-  const PlannerScreen({super.key});
+  /// Dipicu setiap kali tab Planner dibuka kembali agar data tersinkron.
+  final Listenable? refreshSignal;
+
+  const PlannerScreen({super.key, this.refreshSignal});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => PlannerViewModel(repository: PlannerRepositoryImpl()),
-      child: const _PlannerBody(),
+      child: _PlannerBody(refreshSignal: refreshSignal),
     );
   }
 }
 
 class _PlannerBody extends StatefulWidget {
-  const _PlannerBody();
+  final Listenable? refreshSignal;
+
+  const _PlannerBody({this.refreshSignal});
 
   @override
   State<_PlannerBody> createState() => _PlannerBodyState();
@@ -39,10 +44,19 @@ class _PlannerBodyState extends State<_PlannerBody> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!SupabaseConfig.isInitialized || !mounted) return;
-      context.read<PlannerViewModel>().load();
-    });
+    widget.refreshSignal?.addListener(_load);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_load);
+    super.dispose();
+  }
+
+  void _load() {
+    if (!SupabaseConfig.isInitialized || !mounted) return;
+    context.read<PlannerViewModel>().load();
   }
 
   // ───────────── Aksi ─────────────
@@ -334,15 +348,17 @@ class _Content extends StatelessWidget {
           goal: g,
           progress: vm.targetProgressForGoal(g.id),
           onTap: () => onGoal(g),
-          onToggle: () async {
-            final ok = await vm.toggleGoalCompleted(g);
-            if (!ok && context.mounted) {
-              UIFeedback.showError(
-                context,
-                vm.errorMessage ?? 'Gagal memperbarui.',
-              );
-            }
-          },
+          onToggle: vm.canToggleGoal(g)
+              ? () async {
+                  final ok = await vm.toggleGoalCompleted(g);
+                  if (!ok && context.mounted) {
+                    UIFeedback.showError(
+                      context,
+                      vm.errorMessage ?? 'Gagal memperbarui.',
+                    );
+                  }
+                }
+              : null,
         ),
     ];
   }
@@ -370,15 +386,17 @@ class _Content extends StatelessWidget {
             target: t,
             goalTitle: vm.goalById(t.monthlyGoalId)?.title,
             taskProgress: vm.taskProgressForTarget(t.id),
-            onToggle: () async {
-              final ok = await vm.toggleTargetCompleted(t);
-              if (!ok && context.mounted) {
-                UIFeedback.showError(
-                  context,
-                  vm.errorMessage ?? 'Gagal memperbarui.',
-                );
-              }
-            },
+            onToggle: vm.canToggleTarget(t)
+                ? () async {
+                    final ok = await vm.toggleTargetCompleted(t);
+                    if (!ok && context.mounted) {
+                      UIFeedback.showError(
+                        context,
+                        vm.errorMessage ?? 'Gagal memperbarui.',
+                      );
+                    }
+                  }
+                : null,
             onAction: (a) => onTarget(a, t),
           ),
       const SizedBox(height: 12),

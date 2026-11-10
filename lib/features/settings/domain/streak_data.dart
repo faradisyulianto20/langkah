@@ -26,6 +26,16 @@ class StreakData {
     );
   }
 
+  /// Streak yang ditampilkan: 0 bila aktivitas terakhir lebih dari kemarin
+  /// (streak sudah putus, walau baris database belum diperbarui).
+  int effectiveCurrentStreak(DateTime now) {
+    final last = lastActivityDate;
+    if (last == null) return 0;
+    final today = DateTime(now.year, now.month, now.day);
+    final lastDay = DateTime(last.year, last.month, last.day);
+    return today.difference(lastDay).inDays <= 1 ? currentStreak : 0;
+  }
+
   StreakData copyWith({
     String? userId,
     int? currentStreak,

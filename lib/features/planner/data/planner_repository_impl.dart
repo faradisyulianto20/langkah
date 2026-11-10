@@ -4,12 +4,19 @@ import 'package:langkah/core/utils/date_helpers.dart';
 import 'package:langkah/features/home/domain/daily_task.dart';
 import 'package:langkah/features/planner/data/planner_repository.dart';
 import 'package:langkah/features/planner/domain/backlog_item.dart';
-import 'package:langkah/features/planner/domain/category.dart';
+import 'package:langkah/features/home/data/stats_repository.dart';
+import 'package:langkah/features/home/data/stats_repository_impl.dart';
+import 'package:langkah/features/home/domain/category.dart';
 import 'package:langkah/features/planner/domain/goal_status.dart';
 import 'package:langkah/features/planner/domain/monthly_goal.dart';
 import 'package:langkah/features/planner/domain/weekly_target.dart';
 
 class PlannerRepositoryImpl implements PlannerRepository {
+  final StatsRepository _stats;
+
+  PlannerRepositoryImpl({StatsRepository? stats})
+    : _stats = stats ?? StatsRepositoryImpl();
+
   String get _uid {
     final id = SupabaseConfig.client.auth.currentUser?.id;
     if (id == null) {
@@ -212,17 +219,43 @@ class PlannerRepositoryImpl implements PlannerRepository {
   });
 
   @override
-  Future<void> setTaskCompleted(String id, bool completed) => _guard(() async {
-    await SupabaseConfig.client
+  Future<DailyTask> updateDailyTask(DailyTask task) => _guard(() async {
+    final row = await SupabaseConfig.client
         .from('daily_tasks')
         .update({
-          'is_completed': completed,
-          'completed_at': completed
-              ? DateTime.now().toUtc().toIso8601String()
-              : null,
+          'title': task.title,
+          'scheduled_date': DateHelpers.toSqlDate(task.scheduledDate),
+          'priority': task.priority.value,
+          'category_id': task.categoryId,
+          'weekly_target_id': task.weeklyTargetId,
         })
-        .eq('id', id);
+        .eq('id', task.id)
+        .select()
+        .single();
+    return DailyTask.fromMap(row);
   });
+
+  @override
+  Future<void> setTaskCompleted(String id, bool completed) async {
+    await _guard(() async {
+      await SupabaseConfig.client
+          .from('daily_tasks')
+          .update({
+            'is_completed': completed,
+            'completed_at': completed
+                ? DateTime.now().toUtc().toIso8601String()
+                : null,
+          })
+          .eq('id', id);
+    });
+    // Streak dihitung dari tugas hari ini. Kegagalan sinkron tidak
+    // membatalkan centang (tugas sudah tersimpan).
+    try {
+      await _stats.recordTaskToggle(completed: completed);
+    } catch (e) {
+      debugPrint('[PlannerRepository] sinkron streak gagal: $e');
+    }
+  }
 
   @override
   Future<void> deleteDailyTask(String id) => _guard(() async {

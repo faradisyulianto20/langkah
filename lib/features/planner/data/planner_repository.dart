@@ -1,6 +1,6 @@
 import 'package:langkah/features/home/domain/daily_task.dart';
 import 'package:langkah/features/planner/domain/backlog_item.dart';
-import 'package:langkah/features/planner/domain/category.dart';
+import 'package:langkah/features/home/domain/category.dart';
 import 'package:langkah/features/planner/domain/goal_status.dart';
 import 'package:langkah/features/planner/domain/monthly_goal.dart';
 import 'package:langkah/features/planner/domain/weekly_target.dart';
@@ -43,6 +43,7 @@ abstract class PlannerRepository {
     String? categoryId,
     String? weeklyTargetId,
   });
+  Future<DailyTask> updateDailyTask(DailyTask task);
   Future<void> setTaskCompleted(String id, bool completed);
   Future<void> deleteDailyTask(String id);
 

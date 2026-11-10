@@ -3,6 +3,7 @@ import 'package:langkah/core/network/supabase_config.dart';
 import 'package:langkah/features/settings/data/profile_repository.dart';
 import 'package:langkah/features/settings/domain/profile_model.dart';
 import 'package:langkah/features/settings/domain/streak_data.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 class ProfileRepositoryImpl implements ProfileRepository {
   @override
@@ -35,6 +36,43 @@ class ProfileRepositoryImpl implements ProfileRepository {
         'updated_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  @override
+  Future<String> uploadAvatar(
+    String userId,
+    Uint8List bytes, {
+    required String contentType,
+    required String extension,
+  }) async {
+    try {
+      final path = '$userId/avatar.$extension';
+      final storage = SupabaseConfig.client.storage.from('avatars');
+      await storage.uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(upsert: true, contentType: contentType),
+      );
+      // Parameter versi agar gambar baru tidak tertahan cache.
+      final url =
+          '${storage.getPublicUrl(path)}?v=${DateTime.now().millisecondsSinceEpoch}';
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({
+            'avatar_url': url,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', userId);
+      return url;
+    } catch (e) {
+      debugPrint('[ProfileRepository] upload avatar gagal: $e');
+      if (e.toString().contains('Bucket not found')) {
+        throw Exception(
+          'Penyimpanan foto belum disiapkan. Jalankan migrasi avatar di Supabase.',
+        );
+      }
       throw _handleError(e);
     }
   }

@@ -3,8 +3,8 @@ import 'package:langkah/core/constants/app_colors.dart';
 
 typedef Progress = ({int done, int total});
 
-/// Kartu progres utama di puncak halaman Planner: angka `x/y`, persentase,
-/// bar progres, dan kalimat penyemangat.
+/// Kartu progres utama di puncak halaman Planner: gradien teal, teks putih,
+/// angka `x/y`, bar progres, dan kalimat penyemangat.
 class ProgressHero extends StatelessWidget {
   final String title;
   final String unit;
@@ -23,12 +23,15 @@ class ProgressHero extends StatelessWidget {
     this.secondary,
   });
 
-  double get _ratio =>
-      progress.total == 0 ? 0 : (progress.done / progress.total).clamp(0, 1);
+  static double _ratioOf(Progress p) =>
+      p.total == 0 ? 0 : (p.done / p.total).clamp(0, 1).toDouble();
+
+  double get _ratio => _ratioOf(progress);
+  bool get _complete => progress.total > 0 && progress.done >= progress.total;
 
   String get _message {
     if (progress.total == 0) return emptyHint;
-    if (_ratio >= 1) return 'Luar biasa, semuanya selesai! 🎉';
+    if (_complete) return 'Luar biasa, semuanya selesai!';
     if (_ratio >= 0.75) return 'Hampir sampai, tinggal sedikit lagi!';
     if (_ratio >= 0.5) return 'Sudah lebih dari separuh, pertahankan!';
     if (_ratio > 0) return 'Awal yang bagus, terus melangkah!';
@@ -38,7 +41,6 @@ class ProgressHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const onHero = Colors.white;
-    final percent = (_ratio * 100).round();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -84,14 +86,17 @@ class ProgressHero extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '$percent%',
-                style: const TextStyle(
-                  color: onHero,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              if (_complete)
+                const Icon(Icons.check_circle_rounded, color: onHero, size: 28)
+              else
+                Text(
+                  '${(_ratio * 100).round()}%',
+                  style: const TextStyle(
+                    color: onHero,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -119,7 +124,7 @@ class ProgressHero extends StatelessWidget {
                 Text(
                   '${secondary!.done}/${secondary!.total}',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: onHero,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -130,9 +135,7 @@ class ProgressHero extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
-                value: secondary!.total == 0
-                    ? 0
-                    : (secondary!.done / secondary!.total).clamp(0, 1),
+                value: _ratioOf(secondary!),
                 minHeight: 4,
                 color: Colors.white70,
                 backgroundColor: Colors.white24,

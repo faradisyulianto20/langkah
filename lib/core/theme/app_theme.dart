@@ -81,78 +81,135 @@ class AppTheme {
       );
 
   // ─── Dark Theme ────────────────────────────────────────────────────────────
-  static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: AppColors.tealPrimary,
-        scaffoldBackgroundColor: AppColors.canvasDark,
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.surfaceDark,
-          foregroundColor: AppColors.textLight,
-          elevation: 0,
-          scrolledUnderElevation: 1,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: AppColors.textLight,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Roboto',
-          ),
+  // Latar biru-kehijauan sangat gelap; kartu sedikit lebih terang dengan garis
+  // tipis supaya terpisah jelas dari latar tanpa terlalu kontras.
+  static ThemeData get dark {
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.tealPrimary,
+          brightness: Brightness.dark,
+        ).copyWith(
+          surface: AppColors.surfaceDark,
+          onSurface: const Color(0xFFE8EEF0),
+          onSurfaceVariant: AppColors.textSecondaryDark,
+          outline: AppColors.borderDark,
+          outlineVariant: AppColors.borderDark,
+          primary: AppColors.tealLight,
+          onPrimary: const Color(0xFF00201C),
+        );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: AppColors.canvasDark,
+      fontFamily: 'Roboto',
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.navDark,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: AppColors.textLight,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: AppColors.textLight,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Roboto',
         ),
-        navigationBarTheme: const NavigationBarThemeData(
-          backgroundColor: AppColors.surfaceDark,
-          indicatorColor: Color(0xFF005B4F),
-          labelTextStyle: WidgetStatePropertyAll(
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-          ),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: AppColors.navDark,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: Color(0xFF0B4A42),
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
         ),
-        cardTheme: CardThemeData(
-          color: AppColors.surfaceDark,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFF2E2E2E)),
-          ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.surfaceDark,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.borderDark),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.surfaceDark,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.tealLight, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.surfaceDark,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: AppColors.surfaceDark,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: AppColors.surfaceDark,
+        surfaceTintColor: Colors.transparent,
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AppColors.surfaceDark,
+        surfaceTintColor: Colors.transparent,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surfaceDark,
+        selectedColor: const Color(0xFF0B4A42),
+        side: const BorderSide(color: AppColors.borderDark),
+        labelStyle: const TextStyle(color: AppColors.textLight),
+        checkmarkColor: AppColors.tealLight,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surfaceDark,
+        hintStyle: const TextStyle(color: AppColors.textSecondaryDark),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.borderDark),
         ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.tealPrimary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.borderDark),
         ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.tealLight, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.tealPrimary,
           foregroundColor: Colors.white,
-          shape: CircleBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
-        dividerTheme: const DividerThemeData(
-          color: Color(0xFF2E2E2E),
-          thickness: 1,
-          space: 1,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.tealPrimary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-        listTileTheme: const ListTileThemeData(
-          iconColor: AppColors.textSecondary,
-        ),
-      );
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.tealPrimary,
+        foregroundColor: Colors.white,
+        shape: CircleBorder(),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.borderDark,
+        thickness: 1,
+        space: 1,
+      ),
+      listTileTheme: const ListTileThemeData(
+        iconColor: AppColors.textSecondaryDark,
+      ),
+      iconTheme: const IconThemeData(color: AppColors.textSecondaryDark),
+    );
+  }
 }

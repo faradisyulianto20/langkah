@@ -21,7 +21,6 @@ class AuthGate extends StatelessWidget {
           final session = SupabaseConfig.client.auth.currentSession;
           if (session == null) {
             return const Scaffold(
-              backgroundColor: AppColors.canvasLight,
               body: Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.tealPrimary),

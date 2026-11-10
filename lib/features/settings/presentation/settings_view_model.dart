@@ -12,6 +12,7 @@ class SettingsViewModel extends ChangeNotifier {
 
   SettingsStatus _status = SettingsStatus.initial;
   SettingsStatus _updateStatus = SettingsStatus.initial;
+  SettingsStatus _avatarStatus = SettingsStatus.initial;
   ProfileModel? _profile;
   StreakData? _stats;
   String? _errorMessage;
@@ -25,6 +26,7 @@ class SettingsViewModel extends ChangeNotifier {
   String? get successMessage => _successMessage;
   bool get isLoading => _status == SettingsStatus.loading;
   bool get isUpdating => _updateStatus == SettingsStatus.loading;
+  bool get isUploadingAvatar => _avatarStatus == SettingsStatus.loading;
 
   void clearMessages() {
     _errorMessage = null;
@@ -53,6 +55,40 @@ class SettingsViewModel extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Unggah foto profil dari galeri dan perbarui profil di layar.
+  Future<bool> uploadAvatar(
+    Uint8List bytes, {
+    required String contentType,
+    required String extension,
+  }) async {
+    final current = _profile;
+    if (current == null) return false;
+
+    _avatarStatus = SettingsStatus.loading;
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+
+    try {
+      final url = await repository.uploadAvatar(
+        current.id,
+        bytes,
+        contentType: contentType,
+        extension: extension,
+      );
+      _profile = current.copyWith(avatarUrl: url);
+      _avatarStatus = SettingsStatus.success;
+      _successMessage = 'Foto profil diperbarui!';
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _avatarStatus = SettingsStatus.failure;
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Update profil user (username & fullName).

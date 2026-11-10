@@ -49,7 +49,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final authVm = context.watch<AuthViewModel>();
 
     return Scaffold(
-      backgroundColor: AppColors.canvasLight,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -80,7 +79,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
                         letterSpacing: -0.5,
                       ),
                     ),

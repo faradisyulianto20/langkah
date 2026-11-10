@@ -25,9 +25,8 @@ class StatsCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Statistik Langkah',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -38,12 +37,12 @@ class StatsCard extends StatelessWidget {
                   child: _StatItem(
                     icon: Icons.local_fire_department_rounded,
                     iconColor: AppColors.warning,
-                    value: '${stats.currentStreak}',
+                    value: '${stats.effectiveCurrentStreak(DateTime.now())}',
                     label: 'Streak\nSekarang',
                     unit: 'hari',
                   ),
                 ),
-                _buildDivider(),
+                _buildDivider(context),
                 Expanded(
                   child: _StatItem(
                     icon: Icons.emoji_events_rounded,
@@ -53,7 +52,7 @@ class StatsCard extends StatelessWidget {
                     unit: 'hari',
                   ),
                 ),
-                _buildDivider(),
+                _buildDivider(context),
                 Expanded(
                   child: _StatItem(
                     icon: Icons.check_circle_rounded,
@@ -71,11 +70,11 @@ class StatsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(BuildContext context) {
     return Container(
       width: 1,
       height: 56,
-      color: AppColors.divider,
+      color: context.trackColor,
       margin: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
@@ -107,23 +106,19 @@ class _StatItem extends StatelessWidget {
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
           ),
         ),
         Text(
           unit,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 11, color: context.mutedText),
         ),
         const SizedBox(height: 4),
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: AppColors.textSecondary,
+            color: context.mutedText,
             height: 1.3,
           ),
         ),

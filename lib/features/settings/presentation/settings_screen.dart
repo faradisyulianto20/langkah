@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:langkah/core/constants/app_colors.dart';
 import 'package:langkah/core/network/supabase_config.dart';
+import 'package:langkah/core/utils/ui_feedback.dart';
 
 import 'package:langkah/features/auth/presentation/auth_view_model.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:langkah/features/settings/data/profile_repository_impl.dart';
+import 'package:langkah/features/settings/domain/avatar_image.dart';
 import 'package:langkah/features/settings/domain/streak_data.dart';
 import 'package:langkah/features/settings/presentation/settings_view_model.dart';
 import 'package:langkah/features/settings/presentation/widgets/edit_profile_sheet.dart';
@@ -13,19 +16,24 @@ import 'package:langkah/features/settings/presentation/widgets/theme_toggle_tile
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  /// Dipicu setiap kali tab Settings dibuka kembali agar data tersinkron.
+  final Listenable? refreshSignal;
+
+  const SettingsScreen({super.key, this.refreshSignal});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => SettingsViewModel(repository: ProfileRepositoryImpl()),
-      child: const _SettingsBody(),
+      child: _SettingsBody(refreshSignal: refreshSignal),
     );
   }
 }
 
 class _SettingsBody extends StatefulWidget {
-  const _SettingsBody();
+  final Listenable? refreshSignal;
+
+  const _SettingsBody({this.refreshSignal});
 
   @override
   State<_SettingsBody> createState() => _SettingsBodyState();
@@ -35,7 +43,14 @@ class _SettingsBodyState extends State<_SettingsBody> {
   @override
   void initState() {
     super.initState();
+    widget.refreshSignal?.addListener(_loadData);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_loadData);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -45,7 +60,62 @@ class _SettingsBodyState extends State<_SettingsBody> {
     context.read<SettingsViewModel>().loadProfileAndStats(userId);
   }
 
-  Future<void> _openEditSheet(BuildContext context, SettingsViewModel vm) async {
+  /// Pilih foto dari galeri, validasi, lalu unggah sebagai foto profil.
+  Future<void> _changePhoto(SettingsViewModel vm) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+
+      final type = AvatarImage.resolve(
+        mimeType: picked.mimeType,
+        fileName: picked.name,
+      );
+      if (type == null) {
+        UIFeedback.showError(
+          context,
+          'Format foto tidak didukung. Gunakan JPG, PNG, atau WebP.',
+        );
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > AvatarImage.maxBytes) {
+        if (mounted) UIFeedback.showError(context, 'Ukuran foto maksimal 5 MB.');
+        return;
+      }
+
+      final ok = await vm.uploadAvatar(
+        bytes,
+        contentType: type.contentType,
+        extension: type.extension,
+      );
+      if (!mounted) return;
+      if (ok) {
+        UIFeedback.showSuccess(
+          context,
+          vm.successMessage ?? 'Foto profil diperbarui!',
+        );
+      } else {
+        UIFeedback.showError(
+          context,
+          vm.errorMessage ?? 'Gagal mengunggah foto.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        UIFeedback.showError(context, 'Tidak dapat membuka galeri.');
+      }
+    }
+  }
+
+  Future<void> _openEditSheet(
+    BuildContext context,
+    SettingsViewModel vm,
+  ) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -140,7 +210,11 @@ class _SettingsBodyState extends State<_SettingsBody> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off_rounded, size: 56, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 56,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   vm.errorMessage ?? 'Gagal memuat data.',
@@ -163,7 +237,11 @@ class _SettingsBodyState extends State<_SettingsBody> {
     }
   }
 
-  Widget _buildContent(BuildContext context, SettingsViewModel vm, String email) {
+  Widget _buildContent(
+    BuildContext context,
+    SettingsViewModel vm,
+    String email,
+  ) {
     final profile = vm.profile!;
     final stats = vm.stats ?? StreakData.empty(profile.id);
 
@@ -171,7 +249,12 @@ class _SettingsBodyState extends State<_SettingsBody> {
       padding: const EdgeInsets.all(16),
       children: [
         // Profile header
-        ProfileHeader(profile: profile, email: email),
+        ProfileHeader(
+          profile: profile,
+          email: email,
+          onChangePhoto: () => _changePhoto(vm),
+          isUploading: vm.isUploadingAvatar,
+        ),
         const SizedBox(height: 8),
 
         // Edit profile shortcut
@@ -198,10 +281,17 @@ class _SettingsBodyState extends State<_SettingsBody> {
         // Email info (read-only)
         Card(
           child: ListTile(
-            leading: const Icon(Icons.email_outlined, color: AppColors.textSecondary),
+            leading: const Icon(
+              Icons.email_outlined,
+              color: AppColors.textSecondary,
+            ),
             title: const Text('Email'),
             subtitle: Text(email),
-            trailing: const Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.textSecondary),
+            trailing: const Icon(
+              Icons.lock_outline_rounded,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -209,7 +299,10 @@ class _SettingsBodyState extends State<_SettingsBody> {
         // App version
         Card(
           child: ListTile(
-            leading: const Icon(Icons.info_outline_rounded, color: AppColors.textSecondary),
+            leading: const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.textSecondary,
+            ),
             title: const Text('Versi Aplikasi'),
             subtitle: const Text('1.0.0'),
           ),
@@ -221,12 +314,17 @@ class _SettingsBodyState extends State<_SettingsBody> {
           icon: const Icon(Icons.logout_rounded, color: AppColors.error),
           label: const Text(
             'Keluar dari Akun',
-            style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: AppColors.error,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: AppColors.error),
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: () => _confirmLogout(context),
         ),
@@ -248,10 +346,10 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }

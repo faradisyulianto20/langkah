@@ -8,11 +8,16 @@ import 'package:langkah/features/planner/presentation/planner_view_model.dart';
 import 'package:langkah/features/planner/presentation/widgets/sheet_scaffold.dart';
 import 'package:provider/provider.dart';
 
-/// Form tambah tugas harian kecil pada salah satu hari di minggu aktif.
+/// Form tambah/edit tugas harian kecil pada salah satu hari di minggu aktif.
+///
+/// Mode edit bila [task] diberikan. Rencana selalu bisa diedit, termasuk
+/// untuk hari yang sudah lewat; yang dikunci hanya centang selesai.
 class TaskFormSheet extends StatefulWidget {
-  final DateTime initialDate;
+  final DateTime? initialDate;
+  final DailyTask? task;
 
-  const TaskFormSheet({super.key, required this.initialDate});
+  const TaskFormSheet({super.key, this.initialDate, this.task})
+    : assert(initialDate != null || task != null);
 
   @override
   State<TaskFormSheet> createState() => _TaskFormSheetState();
@@ -20,16 +25,21 @@ class TaskFormSheet extends StatefulWidget {
 
 class _TaskFormSheetState extends State<TaskFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController();
+  late final TextEditingController _titleCtrl;
   late DateTime _date;
-  TaskPriority _priority = TaskPriority.medium;
+  late TaskPriority _priority;
   String? _categoryId;
   String? _targetId;
 
   @override
   void initState() {
     super.initState();
-    _date = widget.initialDate;
+    final t = widget.task;
+    _titleCtrl = TextEditingController(text: t?.title ?? '');
+    _date = t?.scheduledDate ?? widget.initialDate!;
+    _priority = t?.priority ?? TaskPriority.medium;
+    _categoryId = t?.categoryId;
+    _targetId = t?.weeklyTargetId;
   }
 
   @override
@@ -41,13 +51,23 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final vm = context.read<PlannerViewModel>();
-    final ok = await vm.addTask(
-      title: _titleCtrl.text,
-      date: _date,
-      priority: _priority,
-      categoryId: _categoryId,
-      weeklyTargetId: _targetId,
-    );
+    final task = widget.task;
+    final ok = task == null
+        ? await vm.addTask(
+            title: _titleCtrl.text,
+            date: _date,
+            priority: _priority,
+            categoryId: _categoryId,
+            weeklyTargetId: _targetId,
+          )
+        : await vm.updateTask(
+            task,
+            title: _titleCtrl.text,
+            date: _date,
+            priority: _priority,
+            categoryId: _categoryId,
+            weeklyTargetId: _targetId,
+          );
     if (!mounted) return;
     if (ok) {
       UIFeedback.showSuccess(context, vm.successMessage ?? 'Tersimpan.');
@@ -63,7 +83,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     final days = vm.weekDays;
 
     return SheetScaffold(
-      title: 'Tugas Baru',
+      title: widget.task == null ? 'Tugas Baru' : 'Edit Tugas',
       child: Form(
         key: _formKey,
         child: Column(
@@ -134,7 +154,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
             if (vm.weekTargets.isNotEmpty) ...[
               const SizedBox(height: 16),
               DropdownButtonFormField<String?>(
-                initialValue: _targetId,
+                initialValue: vm.weekTargets.any((t) => t.id == _targetId)
+                    ? _targetId
+                    : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Berkontribusi ke target (opsional)',
@@ -156,7 +178,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
             ],
             const SizedBox(height: 24),
             CustomButton(
-              text: 'Tambah Tugas',
+              text: widget.task == null ? 'Tambah Tugas' : 'Simpan',
               onPressed: _submit,
               isLoading: vm.isMutating,
             ),

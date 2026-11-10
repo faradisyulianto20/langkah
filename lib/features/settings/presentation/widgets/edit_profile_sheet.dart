@@ -79,7 +79,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: context.borderColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

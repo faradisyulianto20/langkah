@@ -94,12 +94,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     final isRecovery = widget.otpType == OtpType.recovery;
 
     return Scaffold(
-      backgroundColor: AppColors.canvasLight,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -133,7 +132,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -151,7 +149,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                             text: widget.email,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
                             ),
                           ),
                           const TextSpan(text: '. Periksa juga folder Spam/Junk Anda.'),
@@ -183,15 +180,15 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                           color: AppColors.textSecondary.withValues(alpha: 0.3),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: Theme.of(context).colorScheme.surface,
                         contentPadding: const EdgeInsets.symmetric(vertical: 18),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(color: context.borderColor),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(color: context.borderColor),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),

@@ -66,12 +66,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authVm = context.watch<AuthViewModel>();
 
     return Scaffold(
-      backgroundColor: AppColors.canvasLight,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -91,7 +90,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
                         letterSpacing: -0.5,
                       ),
                     ),
