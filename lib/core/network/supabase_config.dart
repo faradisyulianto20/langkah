@@ -4,6 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseConfig {
   SupabaseConfig._();
 
+  static bool get isInitialized {
+    try {
+      return Supabase.instance.isInitialized;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static SupabaseClient get client => Supabase.instance.client;
 
   static Future<void> initialize() async {
