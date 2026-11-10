@@ -1,0 +1,121 @@
+name: Release APK
+
+# Dipicu saat tag versi di-push, mis. `v1.0.0+2` (nama versi 1.0.0, kode 2).
+on:
+  push:
+    tags: ['v*']
+
+# Diperlukan agar workflow boleh membuat GitHub Release.
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Checkout bisa mengubah tag beranotasi jadi tampak "ringan";
+      # ambil ulang agar isi pesan tag terbaca untuk changelog.
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Parse version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?)\+([0-9]+)$ ]]; then
+            echo "::error::Format tag harus vMAJOR.MINOR.PATCH+BUILD, contoh v1.0.0+2 (diterima: $TAG)"
+            exit 1
+          fi
+          NAME="${BASH_REMATCH[1]}"
+          CODE="${BASH_REMATCH[3]}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          # Versi dengan akhiran seperti -beta ditandai pre-release.
+          if [[ "$NAME" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Versi: $NAME (kode $CODE)"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.2'
+          cache: true
+
+      # `.env` di-gitignore tetapi terdaftar sebagai asset aplikasi,
+      # jadi dibuat dari GitHub Secrets saat build.
+      - name: Create .env
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Secret SUPABASE_URL dan SUPABASE_ANON_KEY wajib diisi"
+            exit 1
+          fi
+          printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env
+
+      # Tanda tangan yang SAMA di setiap rilis diperlukan agar APK baru
+      # bisa menimpa (meng-update) versi lama di perangkat pengguna.
+      - name: Setup release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Secret $v wajib diisi"
+              exit 1
+            fi
+          done
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release.keystore\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
+            > android/key.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-name="${{ steps.version.outputs.name }}" \
+            --build-number="${{ steps.version.outputs.code }}"
+
+      # Pesan tag beranotasi bila ada; untuk tag biasa jatuh ke pesan commit.
+      - name: Generate changelog
+        run: |
+          NOTES="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')"
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="Rilis ${GITHUB_REF_NAME}"
+          fi
+          printf '%s\n' "$NOTES" > release_notes.md
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Langkah ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+          body_path: release_notes.md
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          fail_on_unmatched_files: true
