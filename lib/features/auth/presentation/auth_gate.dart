@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:langkah/core/constants/app_colors.dart';
 import 'package:langkah/core/network/supabase_config.dart';
 import 'package:langkah/features/auth/presentation/screens/login_screen.dart';
-import 'package:langkah/features/home/presentation/home_screen.dart';
+import 'package:langkah/features/main/main_navigation_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatelessWidget {
@@ -34,7 +34,7 @@ class AuthGate extends StatelessWidget {
         final session = SupabaseConfig.client.auth.currentSession;
 
         if (session != null) {
-          return const HomeScreen();
+          return const MainNavigationScreen();
         }
 
         return const LoginScreen();

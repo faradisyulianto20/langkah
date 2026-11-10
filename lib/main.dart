@@ -1,8 +1,9 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:langkah/core/constants/app_colors.dart';
 import 'package:langkah/core/network/supabase_config.dart';
+import 'package:langkah/core/providers/theme_provider.dart';
+import 'package:langkah/core/theme/app_theme.dart';
 import 'package:langkah/features/auth/data/auth_repository_impl.dart';
 import 'package:langkah/features/auth/domain/auth_repository.dart';
 import 'package:langkah/features/auth/presentation/auth_gate.dart';
@@ -14,21 +15,30 @@ Future<void> main() async {
 
   await SupabaseConfig.initialize();
 
+  // Load persisted theme preference before app starts
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadFromPrefs();
+
   runApp(
     DevicePreview(
       enabled: !kReleaseMode,
-      builder: (context) => const LangkahApp(),
+      builder: (context) => LangkahApp(themeProvider: themeProvider),
     ),
   );
 }
 
 class LangkahApp extends StatelessWidget {
-  const LangkahApp({super.key});
+  final ThemeProvider themeProvider;
+
+  const LangkahApp({super.key, required this.themeProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Theme
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
+        // Auth
         Provider<AuthRepository>(
           create: (_) => AuthRepositoryImpl(),
         ),
@@ -38,24 +48,17 @@ class LangkahApp extends StatelessWidget {
           ),
         ),
       ],
-      child: MaterialApp(
-        title: 'Langkah',
-        debugShowCheckedModeBanner: false,
-        locale: DevicePreview.locale(context),
-        builder: DevicePreview.appBuilder,
-        theme: ThemeData(
-          colorSchemeSeed: AppColors.tealPrimary,
-          scaffoldBackgroundColor: AppColors.canvasLight,
-          fontFamily: 'Roboto',
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: AppColors.textPrimary,
-            elevation: 0,
-            centerTitle: false,
-          ),
+      child: Consumer<ThemeProvider>(
+        builder: (context, theme, _) => MaterialApp(
+          title: 'Langkah',
+          debugShowCheckedModeBanner: false,
+          locale: DevicePreview.locale(context),
+          builder: DevicePreview.appBuilder,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: theme.themeMode,
+          home: const AuthGate(),
         ),
-        home: const AuthGate(),
       ),
     );
   }
